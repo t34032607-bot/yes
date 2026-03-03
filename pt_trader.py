@@ -325,20 +325,34 @@ def _refresh_paths_and_symbols():
 
 
 
-# API STUFF (Binance)
-# Priority: .env file > environment variables > r_key.txt/r_secret.txt
-API_KEY = os.environ.get('BINANCE_API_KEY', '')
-API_SECRET = os.environ.get('BINANCE_API_SECRET', '')
 
-# Fallback to files if env vars not set
-if not API_KEY:
+# --- Testnet Mode Support ---
+# Set BINANCE_TESTNET=1 in your .env to enable testnet mode
+BINANCE_TESTNET = os.environ.get('BINANCE_TESTNET', '0') == '1'
+
+# Optional offline mode: when set, all network/API calls are bypassed.
+# Useful for development or when running in an environment with no
+# outbound connectivity (CI, air-gapped).
+#
+# To enable, set OFFLINE_MODE=1 or SKIP_BINANCE=1 in your environment.
+OFFLINE_MODE = os.environ.get('OFFLINE_MODE', '0') == '1' or os.environ.get('SKIP_BINANCE', '0') == '1'
+
+if BINANCE_TESTNET:
+    API_KEY = os.environ.get('BINANCE_TESTNET_API_KEY', '')
+    API_SECRET = os.environ.get('BINANCE_TESTNET_API_SECRET', '')
+else:
+    API_KEY = os.environ.get('BINANCE_API_KEY', '')
+    API_SECRET = os.environ.get('BINANCE_API_SECRET', '')
+
+# Fallback to files if env vars not set (mainnet only)
+if not API_KEY and not BINANCE_TESTNET:
     try:
         with open('r_key.txt', 'r', encoding='utf-8') as f:
             API_KEY = (f.read() or "").strip()
     except Exception:
         pass
 
-if not API_SECRET:
+if not API_SECRET and not BINANCE_TESTNET:
     try:
         with open('r_secret.txt', 'r', encoding='utf-8') as f:
             API_SECRET = (f.read() or "").strip()
@@ -346,20 +360,157 @@ if not API_SECRET:
         pass
 
 if not API_KEY or not API_SECRET:
-    print(
-        "\n[PowerTrader] Binance API credentials not found.\n"
-        "Create r_key.txt and r_secret.txt with your Binance API key and secret, or set BINANCE_API_KEY/BINANCE_API_SECRET.\n"
-    )
+    if BINANCE_TESTNET:
+        print(
+            "\n[PowerTrader] Binance TESTNET API credentials not found.\n"
+            "Set BINANCE_TESTNET_API_KEY and BINANCE_TESTNET_API_SECRET in your .env file.\n"
+        )
+    else:
+        print(
+            "\n[PowerTrader] Binance API credentials not found.\n"
+            "Create r_key.txt and r_secret.txt with your Binance API key and secret, or set BINANCE_API_KEY/BINANCE_API_SECRET.\n"
+        )
     raise SystemExit(1)
 
 class CryptoAPITrading:
+    def switch_trading_mode(self, testnet: bool):
+            """
+            Switch between Binance testnet and live trading modes.
+            Updates API keys and endpoint accordingly.
+            Args:
+                testnet (bool): If True, switch to testnet; if False, switch to live trading.
+            """
+            import os
+            if testnet:
+                self.api_key = os.environ.get('BINANCE_TESTNET_API_KEY', '')
+                self.api_secret = os.environ.get('BINANCE_TESTNET_API_SECRET', '')
+                self.base_url = "https://testnet.binance.vision"
+            else:
+                self.api_key = os.environ.get('BINANCE_API_KEY', '')
+                self.api_secret = os.environ.get('BINANCE_API_SECRET', '')
+                self.base_url = "https://api.binance.com"
+            if not self.api_key or not self.api_secret:
+                mode = 'TESTNET' if testnet else 'LIVE'
+                raise RuntimeError(f"Missing API credentials for {mode} mode.")
+
+    def validate_api_credentials(self) -> Tuple[bool, str]:
+        """
+        Validates that the API key has appropriate permissions.
+        Returns: (is_valid: bool, message: str)
+        
+        Checks:
+        - API key and secret are present
+        - Can connect to Binance API
+        - API key has permissions for account access
+        - Timestamp is in sync with server
+        """
+        import hmac
+        import hashlib
+        
+        if not self.api_key or not self.api_secret:
+            return False, "Missing API key or secret. Set BINANCE_API_KEY and BINANCE_API_SECRET environment variables."
+        
+        print(f"{Fore.BLUE}[Validating API Credentials]{Style.RESET_ALL}")
+        print(f"  Endpoint: {self.base_url}")
+        
+        # Test 1: Basic connectivity with public endpoint
+        try:
+            resp = requests.get(f"{self.base_url}/api/v3/ping", timeout=5)
+            resp.raise_for_status()
+            print(f"{Fore.GREEN}  ✓ API Connectivity: OK{Style.RESET_ALL}")
+        except Exception as e:
+            return False, f"Cannot connect to Binance API: {e}"
+        
+        # Test 2: Server timestamp to detect clock sync issues
+        try:
+            resp = requests.get(f"{self.base_url}/api/v3/time", timeout=5)
+            resp.raise_for_status()
+            server_time = resp.json().get('serverTime', None)
+            if server_time:
+                local_time = int(time.time() * 1000)
+                time_diff = abs(local_time - server_time)
+                if time_diff > 5000:  # More than 5 seconds
+                    return False, f"System clock is out of sync: {time_diff}ms difference. Please sync your system clock."
+                print(f"{Fore.GREEN}  ✓ Server Time Sync: OK{Style.RESET_ALL}")
+        except Exception as e:
+            print(f"{Fore.YELLOW}  ⚠ Could not verify server time: {e}{Style.RESET_ALL}")
+        
+        # Test 3: Try to fetch account info (requires API key + proper permissions)
+        try:
+            params = {'timestamp': int(time.time() * 1000)}
+            qs = '&'.join([f"{k}={params[k]}" for k in sorted(params)])
+            signature = hmac.new(
+                self.api_secret.encode('utf-8'),
+                qs.encode('utf-8'),
+                hashlib.sha256
+            ).hexdigest()
+            params['signature'] = signature
+            
+            headers = {'X-MBX-APIKEY': self.api_key}
+            resp = requests.get(
+                f"{self.base_url}/api/v3/account",
+                headers=headers,
+                params=params,
+                timeout=5
+            )
+            
+            if resp.status_code == 401:
+                msg = (
+                    f"{Fore.RED}API Authentication Failed (401 Unauthorized){Style.RESET_ALL}\n"
+                    f"  Possible causes:\n"
+                    f"  1. API Key/Secret are incorrect or expired\n"
+                    f"  2. API Key does NOT have 'Enable Spot Trading' permission\n"
+                    f"  3. API Key does NOT have 'Enable Account Access' permission\n"
+                    f"  4. IP Whitelist restriction: Current IP may not be whitelisted\n\n"
+                    f"  To fix:\n"
+                    f"  - Log into https://www.binance.com/en/user/settings/api-management\n"
+                    f"  - Click on your API key to edit it\n"
+                    f"  - Enable: 'Enable Spot Trading' checkbox\n"
+                    f"  - Enable: 'Enable Reading' checkbox (for account access)\n"
+                    f"  - Check IP Whitelist settings (or disable if too restrictive)\n"
+                    f"  - Save and regenerate the key if necessary"
+                )
+                return False, msg
+            
+            resp.raise_for_status()
+            acct = resp.json()
+            
+            if abs(float(acct.get('totalAssetOfBtc', 0))) > 0 or len(acct.get('balances', [])) > 0:
+                print(f"{Fore.GREEN}  ✓ Account Access: OK{Style.RESET_ALL}")
+                return True, "API credentials are valid and have proper permissions."
+            else:
+                print(f"{Fore.YELLOW}  ⚠ Account accessible but no balances found{Style.RESET_ALL}")
+                return True, "API credentials are valid."
+                
+        except requests.exceptions.Timeout:
+            return False, "API request timed out. The server may be slow or unreachable."
+        except requests.exceptions.ConnectionError as e:
+            return False, f"Connection error: {e}. Cannot reach Binance API."
+        except requests.HTTPError as e:
+            if resp.status_code == 403:
+                msg = (
+                    f"{Fore.RED}API Permission Denied (403 Forbidden){Style.RESET_ALL}\n"
+                    f"  Your API key may have IP whitelist restrictions.\n"
+                    f"  Current IP may not be whitelisted.\n"
+                    f"  Go to https://www.binance.com/en/user/settings/api-management\n"
+                    f"  and check/update your IP whitelist settings."
+                )
+                return False, msg
+            return False, f"HTTP Error: {e}"
+        except Exception as e:
+            return False, f"Unexpected error during validation: {e}"
+
     def __init__(self):
         # keep a copy of the folder map (same idea as trader.py)
         self.path_map = dict(base_paths)
 
         self.api_key = API_KEY
         self.api_secret = API_SECRET
-        self.base_url = "https://api.binance.com"
+        if BINANCE_TESTNET:
+            # Binance testnet endpoint
+            self.base_url = "https://testnet.binance.vision"
+        else:
+            self.base_url = "https://api.binance.com"
 
         self.dca_levels_triggered = {}  # Track DCA levels for each crypto
         self.dca_levels = list(DCA_LEVELS)  # Hard DCA triggers (percent PnL)
@@ -381,8 +532,25 @@ class CryptoAPITrading:
 
 
 
-        self.cost_basis = self.calculate_cost_basis()  # Initialize cost basis at startup
-        self.initialize_dca_levels()  # Initialize DCA levels based on historical buy orders
+        # cost basis and DCA initialization need network access; wrap them
+        # so that a failure (or manual interrupt) during token fetching doesn't
+        # kill the entire bot.  When running in OFFLINE_MODE we simply skip
+        # both steps entirely.
+        if OFFLINE_MODE:
+            print(f"[Offline mode] skipping cost basis and DCA initialization")
+            self.cost_basis = {}
+            self.dca_levels_triggered = {}
+        else:
+            try:
+                self.cost_basis = self.calculate_cost_basis()  # Initialize cost basis at startup
+                self.initialize_dca_levels()  # Initialize DCA levels based on historical buy orders
+            except KeyboardInterrupt:
+                # allow user to abort during long network calls
+                raise
+            except Exception as e:
+                print(f"{Fore.YELLOW}[Warning] DCA/cost basis init failed: {e}{Style.RESET_ALL}")
+                self.cost_basis = {}
+                self.dca_levels_triggered = {}
 
         # GUI hub persistence
         self._pnl_ledger = self._load_pnl_ledger()
@@ -931,6 +1099,10 @@ class CryptoAPITrading:
         that have occurred after the first buy order following the most recent sell order
         for each cryptocurrency.
         """
+        if OFFLINE_MODE:
+            print("[Offline mode] skipping DCA level computation")
+            return
+
         holdings = self.get_holdings()
         if not holdings or "results" not in holdings:
             print("No holdings found. Skipping DCA levels initialization.")
@@ -940,80 +1112,88 @@ class CryptoAPITrading:
             symbol = holding["asset_code"]
 
             full_symbol = f"{symbol}-USD"
-            orders = self.get_orders(full_symbol)
-            
-            if not orders or "results" not in orders:
-                print(f"No orders found for {full_symbol}. Skipping.")
-                continue
-
-            # Filter for filled buy and sell orders (supports Robinhood and Binance shapes)
-            def _order_side_state(o: dict):
-                s = str(o.get('side', '')).lower()
-                st = str(o.get('state', o.get('status', ''))).lower()
-                return s, st
-
-            filled_orders = [
-                order for order in orders["results"]
-                if _order_side_state(order)[1] == "filled" and _order_side_state(order)[0] in ["buy", "sell"]
-            ]
-            
-            if not filled_orders:
-                print(f"No filled buy or sell orders for {full_symbol}. Skipping.")
-                continue
-
-            # Sort orders by creation time in ascending order (oldest first)
-            filled_orders.sort(key=lambda x: x["created_at"])
-
-            # Find the timestamp of the most recent sell order
-            most_recent_sell_time = None
-            for order in reversed(filled_orders):
-                if order["side"] == "sell":
-                    most_recent_sell_time = order["created_at"]
-                    break
-
-            # Determine the cutoff time for buy orders
-            if most_recent_sell_time:
-                # Find all buy orders after the most recent sell
-                relevant_buy_orders = [
-                    order for order in filled_orders
-                    if order["side"] == "buy" and order["created_at"] > most_recent_sell_time
-                ]
-                if not relevant_buy_orders:
-                    print(f"No buy orders after the most recent sell for {full_symbol}.")
+            try:
+                orders = self.get_orders(full_symbol)
+                
+                if not orders or "results" not in orders:
+                    print(f"No orders found for {full_symbol}. Skipping.")
                     self.dca_levels_triggered[symbol] = []
                     continue
-                print(f"Most recent sell for {full_symbol} at {most_recent_sell_time}.")
-            else:
-                # If no sell orders, consider all buy orders
-                relevant_buy_orders = [
-                    order for order in filled_orders
-                    if order["side"] == "buy"
+
+                # Filter for filled buy and sell orders (supports Robinhood and Binance shapes)
+                def _order_side_state(o: dict):
+                    s = str(o.get('side', '')).lower()
+                    st = str(o.get('state', o.get('status', ''))).lower()
+                    return s, st
+
+                filled_orders = [
+                    order for order in orders["results"]
+                    if _order_side_state(order)[1] == "filled" and _order_side_state(order)[0] in ["buy", "sell"]
                 ]
-                if not relevant_buy_orders:
-                    print(f"No buy orders for {full_symbol}. Skipping.")
+                
+                if not filled_orders:
+                    print(f"No filled buy or sell orders for {full_symbol}. Skipping.")
                     self.dca_levels_triggered[symbol] = []
                     continue
-                print(f"No sell orders found for {full_symbol}. Considering all buy orders.")
 
-            # Ensure buy orders are sorted by creation time ascending
-            relevant_buy_orders.sort(key=lambda x: x["created_at"])
+                # Sort orders by creation time in ascending order (oldest first)
+                filled_orders.sort(key=lambda x: x["created_at"])
 
-            # Identify the first buy order in the relevant list
-            first_buy_order = relevant_buy_orders[0]
-            first_buy_time = first_buy_order["created_at"]
+                # Find the timestamp of the most recent sell order
+                most_recent_sell_time = None
+                for order in reversed(filled_orders):
+                    if order["side"] == "sell":
+                        most_recent_sell_time = order["created_at"]
+                        break
 
-            # Count the number of buy orders after the first buy
-            buy_orders_after_first = [
-                order for order in relevant_buy_orders
-                if order["created_at"] > first_buy_time
-            ]
+                # Determine the cutoff time for buy orders
+                if most_recent_sell_time:
+                    # Find all buy orders after the most recent sell
+                    relevant_buy_orders = [
+                        order for order in filled_orders
+                        if order["side"] == "buy" and order["created_at"] > most_recent_sell_time
+                    ]
+                    if not relevant_buy_orders:
+                        print(f"No buy orders after the most recent sell for {full_symbol}.")
+                        self.dca_levels_triggered[symbol] = []
+                        continue
+                    print(f"Most recent sell for {full_symbol} at {most_recent_sell_time}.")
+                else:
+                    # If no sell orders, consider all buy orders
+                    relevant_buy_orders = [
+                        order for order in filled_orders
+                        if order["side"] == "buy"
+                    ]
+                    if not relevant_buy_orders:
+                        print(f"No buy orders for {full_symbol}. Skipping.")
+                        self.dca_levels_triggered[symbol] = []
+                        continue
+                    print(f"No sell orders found for {full_symbol}. Considering all buy orders.")
 
-            triggered_levels_count = len(buy_orders_after_first)
+                # Ensure buy orders are sorted by creation time ascending
+                relevant_buy_orders.sort(key=lambda x: x["created_at"])
 
-            # Track DCA by stage index (0, 1, 2, ...) rather than % values.
-            # This makes neural-vs-hardcoded clean, and allows repeating the -50% stage indefinitely.
-            self.dca_levels_triggered[symbol] = list(range(triggered_levels_count))
-            print(f"Initialized DCA stages for {symbol}: {triggered_levels_count}")
+                # Identify the first buy order in the relevant list
+                first_buy_order = relevant_buy_orders[0]
+                first_buy_time = first_buy_order["created_at"]
+
+                # Count the number of buy orders after the first buy
+                buy_orders_after_first = [
+                    order for order in relevant_buy_orders
+                    if order["created_at"] > first_buy_time
+                ]
+
+                triggered_levels_count = len(buy_orders_after_first)
+
+                # Track DCA by stage index (0, 1, 2, ...) rather than % values.
+                # This makes neural-vs-hardcoded clean, and allows repeating the -50% stage indefinitely.
+                self.dca_levels_triggered[symbol] = list(range(triggered_levels_count))
+                print(f"Initialized DCA stages for {symbol}: {triggered_levels_count}")
+            except Exception as e:
+                # Skip assets that can't be queried
+                print(f"{Fore.YELLOW}[Warning] Could not initialize DCA levels for {full_symbol}: {e}. Skipping.{Style.RESET_ALL}")
+                self.dca_levels_triggered[symbol] = []
+
 
 
     def _seed_dca_window_from_history(self) -> None:
@@ -1115,82 +1295,118 @@ class CryptoAPITrading:
 
     def make_api_request(self, method: str, path: str, body: Optional[str] = None) -> Any:
         url = self.base_url + path
+        max_retries = 3
+        retry_count = 0
 
-        try:
-            # Compatibility shim: translate old Robinhood trading order calls to Binance
-            if '/api/v1/crypto/trading/orders' in path and method == 'POST':
-                try:
-                    payload = json.loads(body) if body else {}
-                except Exception:
-                    payload = {}
-
-                sym = str(payload.get('symbol', '')).replace('-', '').replace('USD', 'USDT')
-                side = str(payload.get('side', '')).upper()
-                moc = payload.get('market_order_config', {}) or {}
-                asset_qty = moc.get('asset_quantity')
-
-                params = {'symbol': sym, 'side': side, 'type': 'MARKET'}
-                if asset_qty:
-                    # asset_qty might be a string like '0.00100000'
-                    params['quantity'] = str(asset_qty)
-
-                signed = self._binance_signed_params(params)
-                headers = {'X-MBX-APIKEY': self.api_key}
-                resp = requests.post(self.base_url + '/api/v3/order', headers=headers, params=signed, timeout=10)
-                try:
-                    resp.raise_for_status()
-                    data = resp.json()
-                    # Normalize to previous shape (id key)
-                    out = dict(data)
-                    out['id'] = data.get('orderId')
-                    return out
-                except Exception:
-                    try:
-                        return resp.json()
-                    except Exception:
-                        return None
-
-            # Binance: public market endpoints are unauthenticated; account/order endpoints require HMAC signature
-            headers = {}
-            params = None
-
-            # If body is JSON string, parse it as params for signed endpoints
-            if body:
-                try:
-                    params = json.loads(body)
-                except Exception:
-                    params = None
-
-            # Determine if endpoint requires signature (simple heuristic)
-            is_signed = (path.startswith('/api/v3/account') or '/order' in path or path.startswith('/api/v3/myTrades'))
-
-            if is_signed:
-                # add timestamp and signature
-                params = params or {}
-                params['timestamp'] = int(time.time() * 1000)
-                qs = '&'.join([f"{k}={quote(str(params[k]), safe='') }" for k in sorted(params)])
-                import hmac, hashlib
-                signature = hmac.new(self.api_secret.encode('utf-8'), qs.encode('utf-8'), hashlib.sha256).hexdigest()
-                params['signature'] = signature
-                headers['X-MBX-APIKEY'] = self.api_key
-
-            if method == 'GET':
-                response = requests.get(url, headers=headers, params=params, timeout=10)
-            elif method == 'POST':
-                # For Binance market buy by quote, use 'quoteOrderQty' in params
-                response = requests.post(url, headers=headers, params=params, json=None if params else None, timeout=10)
-            else:
-                response = requests.request(method, url, headers=headers, params=params, timeout=10)
-
-            response.raise_for_status()
-            return response.json()
-        except requests.HTTPError:
+        while retry_count < max_retries:
             try:
+                # Compatibility shim: translate old Robinhood trading order calls to Binance
+                if '/api/v1/crypto/trading/orders' in path and method == 'POST':
+                    try:
+                        payload = json.loads(body) if body else {}
+                    except Exception:
+                        payload = {}
+
+                    sym = str(payload.get('symbol', '')).replace('-', '').replace('USD', 'USDT')
+                    side = str(payload.get('side', '')).upper()
+                    moc = payload.get('market_order_config', {}) or {}
+                    asset_qty = moc.get('asset_quantity')
+
+                    params = {'symbol': sym, 'side': side, 'type': 'MARKET'}
+                    if asset_qty:
+                        # asset_qty might be a string like '0.00100000'
+                        params['quantity'] = str(asset_qty)
+
+                    signed = self._binance_signed_params(params)
+                    headers = {'X-MBX-APIKEY': self.api_key}
+                    resp = requests.post(self.base_url + '/api/v3/order', headers=headers, params=signed, timeout=10)
+                    try:
+                        resp.raise_for_status()
+                        data = resp.json()
+                        # Normalize to previous shape (id key)
+                        out = dict(data)
+                        out['id'] = data.get('orderId')
+                        return out
+                    except Exception as e:
+                        print(f"{Fore.YELLOW}Order request failed: {e}{Style.RESET_ALL}")
+                        try:
+                            return resp.json()
+                        except Exception:
+                            return None
+
+                # Binance: public market endpoints are unauthenticated; account/order endpoints require HMAC signature
+                headers = {}
+                params = None
+
+                # If body is JSON string, parse it as params for signed endpoints
+                if body:
+                    try:
+                        params = json.loads(body)
+                    except Exception:
+                        params = None
+
+                # Determine if endpoint requires signature (simple heuristic)
+                is_signed = (path.startswith('/api/v3/account') or '/order' in path or path.startswith('/api/v3/myTrades'))
+
+                if is_signed:
+                    # add timestamp and signature
+                    params = params or {}
+                    params['timestamp'] = int(time.time() * 1000)
+                    qs = '&'.join([f"{k}={quote(str(params[k]), safe='') }" for k in sorted(params)])
+                    import hmac, hashlib
+                    signature = hmac.new(self.api_secret.encode('utf-8'), qs.encode('utf-8'), hashlib.sha256).hexdigest()
+                    params['signature'] = signature
+                    headers['X-MBX-APIKEY'] = self.api_key
+
+                # allow the caller to opt out of SSL verification if the cert
+                # bundle is slow to load (e.g. on a network mount) or missing.
+                verify_ssl = not os.environ.get('BINANCE_SSL_NO_VERIFY', '0') == '1'
+
+                # use a tuple to separately bound connect and read timeouts; the
+                # handshake happens during connect so should still be limited.
+                if method == 'GET':
+                    response = requests.get(url, headers=headers, params=params, timeout=(5, 10), verify=verify_ssl)
+                elif method == 'POST':
+                    # For Binance market buy by quote, use 'quoteOrderQty' in params
+                    response = requests.post(url, headers=headers, params=params, json=None if params else None, timeout=(5, 10), verify=verify_ssl)
+                else:
+                    response = requests.request(method, url, headers=headers, params=params, timeout=(5, 10), verify=verify_ssl)
+
+                response.raise_for_status()
                 return response.json()
-            except Exception:
+            except requests.exceptions.Timeout:
+                retry_count += 1
+                if retry_count < max_retries:
+                    wait_time = 2 ** retry_count  # exponential backoff: 2, 4, 8 seconds
+                    print(f"{Fore.YELLOW}[Retry {retry_count}/{max_retries}] API timeout on {path}. Retrying in {wait_time}s...{Style.RESET_ALL}")
+                    time.sleep(wait_time)
+                else:
+                    print(f"{Fore.RED}[FAILED] API timeout on {path} after {max_retries} retries{Style.RESET_ALL}")
+                    return None
+            except requests.exceptions.ConnectionError as e:
+                retry_count += 1
+                if retry_count < max_retries:
+                    wait_time = 2 ** retry_count
+                    print(f"{Fore.YELLOW}[Retry {retry_count}/{max_retries}] Connection error on {path}: {e}. Retrying in {wait_time}s...{Style.RESET_ALL}")
+                    time.sleep(wait_time)
+                else:
+                    print(f"{Fore.RED}[FAILED] Connection error on {path}: {e}{Style.RESET_ALL}")
+                    return None
+            except requests.HTTPError as e:
+                # For allOrders endpoint with 400 errors, it's typically an invalid symbol - silently return None
+                if response.status_code == 400 and 'allOrders' in path:
+                    return None
+                print(f"{Fore.RED}[HTTP Error] {method} {path}: {e}{Style.RESET_ALL}")
+                try:
+                    return response.json()
+                except Exception:
+                    return None
+            except KeyboardInterrupt:
+                print(f"\n{Fore.CYAN}Bot interrupted by user{Style.RESET_ALL}")
+                raise
+            except Exception as e:
+                print(f"{Fore.RED}[Error] Unexpected error on {method} {path}: {type(e).__name__}: {e}{Style.RESET_ALL}")
                 return None
-        except Exception:
-            return None
 
     def _binance_signed_params(self, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         params = dict(params or {})
@@ -1208,6 +1424,9 @@ class CryptoAPITrading:
     def get_holdings(self) -> Any:
         # Convert Binance account balances to expected holdings shape
         acct = self.get_account()
+        if acct is None:
+            # offline mode or failed request
+            return {"results": []}
         out = {"results": []}
         try:
             balances = acct.get('balances', []) if isinstance(acct, dict) else []
@@ -1231,14 +1450,22 @@ class CryptoAPITrading:
 
     def get_orders(self, symbol: str) -> Any:
         # symbol expected like 'BTC-USD' -> map to 'BTCUSDT'
-        pair = symbol.replace('-', '').replace('USD', 'USDT')
+        # More robust symbol conversion: BTC-USD should become BTCUSDT
+        parts = symbol.split('-')
+        if len(parts) == 2 and parts[1].upper() == 'USD':
+            pair = parts[0].upper() + 'USDT'
+        else:
+            # Fallback for other formats
+            pair = symbol.replace('-', '').upper()
+            if not pair.endswith('USDT'):
+                pair = pair + 'USDT'
+        
         path = f"/api/v3/allOrders?symbol={pair}"
         res = self.make_api_request("GET", path)
         # Normalize to previous shape used by the trader (dict with 'results')
         if isinstance(res, list):
             return {"results": res}
         return res
-
     def calculate_cost_basis(self):
         holdings = self.get_holdings()
         if not holdings or "results" not in holdings:
@@ -1253,44 +1480,50 @@ class CryptoAPITrading:
         cost_basis = {}
 
         for asset_code in active_assets:
-            orders = self.get_orders(f"{asset_code}-USD")
-            if not orders or "results" not in orders:
-                continue
+            try:
+                orders = self.get_orders(f"{asset_code}-USD")
+                if not orders or "results" not in orders:
+                    cost_basis[asset_code] = 0.0
+                    continue
 
-            # Get all filled buy orders, sorted from most recent to oldest
-            def _is_filled_buy(o: dict) -> bool:
-                side = str(o.get('side', '')).lower()
-                state = str(o.get('state', o.get('status', ''))).lower()
-                return (side == 'buy') and (state == 'filled')
+                # Get all filled buy orders, sorted from most recent to oldest
+                def _is_filled_buy(o: dict) -> bool:
+                    side = str(o.get('side', '')).lower()
+                    state = str(o.get('state', o.get('status', ''))).lower()
+                    return (side == 'buy') and (state == 'filled')
 
-            buy_orders = [order for order in orders["results"] if _is_filled_buy(order)]
-            buy_orders.sort(key=lambda x: x["created_at"], reverse=True)
+                buy_orders = [order for order in orders["results"] if _is_filled_buy(order)]
+                buy_orders.sort(key=lambda x: x["created_at"], reverse=True)
 
-            remaining_quantity = current_quantities[asset_code]
-            total_cost = 0.0
+                remaining_quantity = current_quantities[asset_code]
+                total_cost = 0.0
 
-            for order in buy_orders:
-                for execution in order.get("executions", []) or order.get("fills", []):
-                    quantity = float(execution.get("quantity", execution.get("qty", 0)))
-                    price = float(execution.get("effective_price", execution.get("price", 0)))
+                for order in buy_orders:
+                    for execution in order.get("executions", []) or order.get("fills", []):
+                        quantity = float(execution.get("quantity", execution.get("qty", 0)))
+                        price = float(execution.get("effective_price", execution.get("price", 0)))
+
+                        if remaining_quantity <= 0:
+                            break
+
+                        # Use only the portion of the quantity needed to match the current holdings
+                        if quantity > remaining_quantity:
+                            total_cost += remaining_quantity * price
+                            remaining_quantity = 0
+                        else:
+                            total_cost += quantity * price
+                            remaining_quantity -= quantity
 
                     if remaining_quantity <= 0:
                         break
 
-                    # Use only the portion of the quantity needed to match the current holdings
-                    if quantity > remaining_quantity:
-                        total_cost += remaining_quantity * price
-                        remaining_quantity = 0
-                    else:
-                        total_cost += quantity * price
-                        remaining_quantity -= quantity
-
-                if remaining_quantity <= 0:
-                    break
-
-            if current_quantities[asset_code] > 0:
-                cost_basis[asset_code] = total_cost / current_quantities[asset_code]
-            else:
+                if current_quantities[asset_code] > 0:
+                    cost_basis[asset_code] = total_cost / current_quantities[asset_code]
+                else:
+                    cost_basis[asset_code] = 0.0
+            except Exception as e:
+                # Skip assets that can't be queried (e.g., invalid trading pairs or API errors)
+                print(f"{Fore.YELLOW}[Warning] Could not fetch orders for {asset_code}: {e}. Setting cost basis to 0.{Style.RESET_ALL}")
                 cost_basis[asset_code] = 0.0
 
         return cost_basis
@@ -2276,6 +2509,16 @@ class CryptoAPITrading:
             except Exception as e:
                 print(traceback.format_exc())
 
+
 if __name__ == "__main__":
     trading_bot = CryptoAPITrading()
+    
+    # Validate API credentials before starting
+    is_valid, message = trading_bot.validate_api_credentials()
+    print(f"\n{message}\n")
+    
+    if not is_valid:
+        print(f"{Fore.RED}[FATAL] Cannot start trading bot without valid API credentials.{Style.RESET_ALL}")
+        raise SystemExit(1)
+    
     trading_bot.run()
