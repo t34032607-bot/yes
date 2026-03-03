@@ -13,6 +13,8 @@ import colorama
 from colorama import Fore, Style
 import traceback
 from dotenv import load_dotenv
+import websocket
+from queue import Queue
 
 # Load environment variables from .env file
 load_dotenv()
@@ -571,6 +573,23 @@ class CryptoAPITrading:
         adapter = HTTPAdapter(pool_connections=100, pool_maxsize=100)
         self.session.mount("https://", adapter)
         self.session.mount("http://", adapter)
+
+        # ----- websocket price streaming -----
+        # cache for live prices streamed from Binance (symbol -> {ask,bid,ts})
+        self._ws_price_cache = {}
+        self._ws_cache_lock = threading.Lock()
+        self._ws_connection = None
+        self._ws_stream_symbols = set()
+        self._ws_running = False
+        self._ws_message_queue = Queue(maxsize=1000)
+
+        # Start websocket price stream in background (will auto-reconnect if fails)
+        if not OFFLINE_MODE:
+            t = threading.Thread(target=self._run_websocket_stream, daemon=True)
+            t.start()
+            # Wait a moment for stream to connect, then subscribe to symbols
+            time.sleep(1)
+            self._subscribe_price_streams(crypto_symbols)
 
         self.dca_levels_triggered = {}  # Track DCA levels for each crypto
         self.dca_levels = list(DCA_LEVELS)  # Hard DCA triggers (percent PnL)
@@ -1421,6 +1440,78 @@ class CryptoAPITrading:
             self._dca_last_sell_ts[base] = float(ts if ts is not None else time.time())
         self._dca_buy_ts[base] = []
 
+    def _run_websocket_stream(self) -> None:
+        """Background worker that maintains a persistent websocket connection
+        to Binance price stream. Reconnects automatically on failure.
+        """
+        self._ws_running = True
+        while self._ws_running:
+            try:
+                ws_url = "wss://stream.binance.com:9443/ws"
+                self._ws_connection = websocket.WebSocketApp(
+                    ws_url,
+                    on_message=self._on_ws_message,
+                    on_error=self._on_ws_error,
+                    on_close=self._on_ws_close,
+                )
+                # Run forever (blocks until connection closes)
+                self._ws_connection.run_forever(
+                    ping_interval=30, ping_payload="ping"
+                )
+            except Exception as e:
+                print(
+                    f"{Fore.YELLOW}[WebSocket] Connection error: {e}. Reconnecting in 5s...{Style.RESET_ALL}"
+                )
+                time.sleep(5)
+
+    def _on_ws_message(self, ws, message: str) -> None:
+        """Handle incoming websocket messages (prices)."""
+        try:
+            data = json.loads(message)
+
+            # Handle bookTicker (bid/ask prices)
+            if "b" in data and "a" in data:  # bid and ask in bookTicker format
+                symbol_binance = data.get("s", "")
+                bid = float(data.get("b", 0.0) or 0.0)
+                ask = float(data.get("a", 0.0) or 0.0)
+
+                if bid > 0.0 and ask > 0.0 and symbol_binance:
+                    # Convert BTCUSDT -> BTC-USD
+                    symbol = symbol_binance.replace("USDT", "-USD")
+
+                    with self._ws_cache_lock:
+                        self._ws_price_cache[symbol] = {
+                            "ask": ask,
+                            "bid": bid,
+                            "ts": time.time(),
+                        }
+        except Exception as e:
+            pass  # Silently ignore malformed messages
+
+    def _on_ws_error(self, ws, error: Exception) -> None:
+        """Handle websocket errors."""
+        print(f"{Fore.YELLOW}[WebSocket] Error: {error}{Style.RESET_ALL}")
+
+    def _on_ws_close(self, ws, close_status_code, close_msg) -> None:
+        """Handle websocket close."""
+        print(
+            f"{Fore.YELLOW}[WebSocket] Closed (code={close_status_code}). Will reconnect...{Style.RESET_ALL}"
+        )
+
+    def _subscribe_price_streams(self, symbols: List[str]) -> None:
+        """Subscribe to price updates for specific symbols via websocket.
+        (Note: Binance bookTicker has no explicit subscribe; streams all pairs.)
+        """
+        if not symbols or not self._ws_connection:
+            return
+
+        # Binance bookTicker stream endpoint that we'll connect to
+        # For now, just track symbols we care about so filters are applied on message
+        with self._ws_cache_lock:
+            for sym in symbols:
+                pair = sym.replace("-", "").replace("USD", "USDT")
+                self._ws_stream_symbols.add(pair)
+
     def make_api_request(
         self, method: str, path: str, body: Optional[str] = None
     ) -> Any:
@@ -1738,6 +1829,7 @@ class CryptoAPITrading:
     def get_price(
         self, symbols: list
     ) -> Tuple[Dict[str, float], Dict[str, float], List[str]]:
+        """Fetch bid/ask prices. First tries websocket cache, then falls back to REST."""
         buy_prices: Dict[str, float] = {}
         sell_prices: Dict[str, float] = {}
         valid_symbols: List[str] = []
@@ -1746,7 +1838,21 @@ class CryptoAPITrading:
             if symbol == "USDC-USD":
                 continue
 
-            # Map 'BTC-USD' -> 'BTCUSDT'
+            ask, bid = None, None
+
+            # First, try websocket cache (if stream is running)
+            with self._ws_cache_lock:
+                if symbol in self._ws_price_cache:
+                    cached_entry = self._ws_price_cache[symbol]
+                    ask = float(cached_entry.get("ask", 0.0) or 0.0)
+                    bid = float(cached_entry.get("bid", 0.0) or 0.0)
+                    if ask > 0.0 and bid > 0.0:
+                        buy_prices[symbol] = ask
+                        sell_prices[symbol] = bid
+                        valid_symbols.append(symbol)
+                        continue
+
+            # Fallback: REST API call if not in websocket cache or prices invalid
             pair = symbol.replace("-", "").replace("USD", "USDT")
             path = f"/api/v3/ticker/bookTicker?symbol={pair}"
             response = self.make_api_request("GET", path)
@@ -1763,6 +1869,14 @@ class CryptoAPITrading:
                     sell_prices[symbol] = bid
                     valid_symbols.append(symbol)
 
+                    # Cache this REST response in websocket cache as well
+                    with self._ws_cache_lock:
+                        self._ws_price_cache[symbol] = {
+                            "ask": ask,
+                            "bid": bid,
+                            "ts": time.time(),
+                        }
+
                     try:
                         self._last_good_bid_ask[symbol] = {
                             "ask": ask,
@@ -1772,6 +1886,7 @@ class CryptoAPITrading:
                     except Exception:
                         pass
             else:
+                # REST call failed; try fallback cache
                 cached = None
                 try:
                     cached = self._last_good_bid_ask.get(symbol)
@@ -2784,6 +2899,17 @@ class CryptoAPITrading:
         except Exception:
             pass
 
+    def shutdown(self) -> None:
+        """Gracefully shut down the trading bot and close websocket connection."""
+        print(f"{Fore.CYAN}[Shutdown] Closing websocket stream...{Style.RESET_ALL}")
+        self._ws_running = False
+        if self._ws_connection:
+            try:
+                self._ws_connection.close()
+            except Exception:
+                pass
+        print(f"{Fore.CYAN}[Shutdown] Done.{Style.RESET_ALL}")
+
     def run(self):
         while True:
             try:
@@ -2806,4 +2932,8 @@ if __name__ == "__main__":
         )
         raise SystemExit(1)
 
-    trading_bot.run()
+    try:
+        trading_bot.run()
+    except KeyboardInterrupt:
+        print(f"\n{Fore.CYAN}[User] Shutting down...{Style.RESET_ALL}")
+        trading_bot.shutdown()
