@@ -50,3 +50,6 @@ trader_status.json
 trade_history.jsonl
 pnl_ledger.json
 account_value_history.jsonl
+
+# Binance API credentials
+.env.binance
