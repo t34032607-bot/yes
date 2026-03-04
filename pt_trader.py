@@ -365,6 +365,25 @@ def _refresh_paths_and_symbols():
 # Set BINANCE_TESTNET=1 in your .env to enable testnet mode
 BINANCE_TESTNET = os.environ.get("BINANCE_TESTNET", "0") == "1"
 
+# Binance offers two separate API domains: **spot** (the default) and
+# **futures** (USDT-margined contracts).  Historically PowerTrader only
+# worked with spot.  Add a simple switch so callers can opt into the
+# futures API by setting ``BINANCE_FUTURES=1`` in their environment.
+#
+# When futures mode is enabled we automatically adjust the base URL and
+# convert the familiar ``/api/v3/...`` paths into ``/fapi/v1/...``
+# equivalents, and websocket streams are pointed at the futures feed.
+# API keys are looked up from separate env vars where available but will
+# fall back to the spot values for convenience.
+#
+# Usage example in .env:
+#
+#     BINANCE_FUTURES=1
+#     BINANCE_API_KEY=<your-key>
+#     BINANCE_API_SECRET=<your-secret>
+
+BINANCE_FUTURES = os.environ.get("BINANCE_FUTURES", "0") == "1"
+
 # Optional offline mode: when set, all network/API calls are bypassed.
 # Useful for development or when running in an environment with no
 # outbound connectivity (CI, air-gapped).
@@ -375,12 +394,23 @@ OFFLINE_MODE = (
     or os.environ.get("SKIP_BINANCE", "0") == "1"
 )
 
-if BINANCE_TESTNET:
-    API_KEY = os.environ.get("BINANCE_TESTNET_API_KEY", "")
-    API_SECRET = os.environ.get("BINANCE_TESTNET_API_SECRET", "")
+# pick up API credentials, allowing separate spot/futures keys but
+# falling back to the spot variables if the futures-specific ones are
+# missing.  Testnet variants are handled similarly.
+if BINANCE_FUTURES:
+    if BINANCE_TESTNET:
+        API_KEY = os.environ.get("BINANCE_TESTNET_FUTURES_API_KEY", "") or os.environ.get("BINANCE_TESTNET_API_KEY", "")
+        API_SECRET = os.environ.get("BINANCE_TESTNET_FUTURES_API_SECRET", "") or os.environ.get("BINANCE_TESTNET_API_SECRET", "")
+    else:
+        API_KEY = os.environ.get("BINANCE_FUTURES_API_KEY", "") or os.environ.get("BINANCE_API_KEY", "")
+        API_SECRET = os.environ.get("BINANCE_FUTURES_API_SECRET", "") or os.environ.get("BINANCE_API_SECRET", "")
 else:
-    API_KEY = os.environ.get("BINANCE_API_KEY", "")
-    API_SECRET = os.environ.get("BINANCE_API_SECRET", "")
+    if BINANCE_TESTNET:
+        API_KEY = os.environ.get("BINANCE_TESTNET_API_KEY", "")
+        API_SECRET = os.environ.get("BINANCE_TESTNET_API_SECRET", "")
+    else:
+        API_KEY = os.environ.get("BINANCE_API_KEY", "")
+        API_SECRET = os.environ.get("BINANCE_API_SECRET", "")
 
 # Fallback to files if env vars not set (mainnet only)
 if not API_KEY and not BINANCE_TESTNET:
@@ -399,15 +429,18 @@ if not API_SECRET and not BINANCE_TESTNET:
 
 if not API_KEY or not API_SECRET:
     if BINANCE_TESTNET:
-        print(
-            "\n[PowerTrader] Binance TESTNET API credentials not found.\n"
-            "Set BINANCE_TESTNET_API_KEY and BINANCE_TESTNET_API_SECRET in your .env file.\n"
-        )
+        mode_msg = "TESTNET "
     else:
-        print(
-            "\n[PowerTrader] Binance API credentials not found.\n"
-            "Create r_key.txt and r_secret.txt with your Binance API key and secret, or set BINANCE_API_KEY/BINANCE_API_SECRET.\n"
-        )
+        mode_msg = ""
+    if BINANCE_FUTURES:
+        service = "FUTURES"
+    else:
+        service = "SPOT"
+
+    print(
+        f"\n[PowerTrader] Binance {mode_msg}{service} API credentials not found.\n"
+        "Check your environment variables or credential files.\n"
+    )
     raise SystemExit(1)
 
 
@@ -421,17 +454,76 @@ class CryptoAPITrading:
         """
         import os
 
-        if testnet:
-            self.api_key = os.environ.get("BINANCE_TESTNET_API_KEY", "")
-            self.api_secret = os.environ.get("BINANCE_TESTNET_API_SECRET", "")
-            self.base_url = "https://testnet.binance.vision"
+        # allow caller to optionally change API type as well; if not
+        # provided we keep whatever the object was created with
+        futures = getattr(self, "api_type", "spot") == "futures"
+
+        if futures and os.environ.get("BINANCE_FUTURES", None) is not None:
+            futures = os.environ.get("BINANCE_FUTURES", "0") == "1"
+
+        self.api_type = "futures" if futures else "spot"
+
+        # select credentials based on the active combination
+        if self.api_type == "futures":
+            if testnet:
+                self.api_key = os.environ.get("BINANCE_TESTNET_FUTURES_API_KEY", "") or os.environ.get("BINANCE_TESTNET_API_KEY", "")
+                self.api_secret = os.environ.get("BINANCE_TESTNET_FUTURES_API_SECRET", "") or os.environ.get("BINANCE_TESTNET_API_SECRET", "")
+            else:
+                self.api_key = os.environ.get("BINANCE_FUTURES_API_KEY", "") or os.environ.get("BINANCE_API_KEY", "")
+                self.api_secret = os.environ.get("BINANCE_FUTURES_API_SECRET", "") or os.environ.get("BINANCE_API_SECRET", "")
         else:
-            self.api_key = os.environ.get("BINANCE_API_KEY", "")
-            self.api_secret = os.environ.get("BINANCE_API_SECRET", "")
-            self.base_url = "https://api.binance.com"
+            if testnet:
+                self.api_key = os.environ.get("BINANCE_TESTNET_API_KEY", "")
+                self.api_secret = os.environ.get("BINANCE_TESTNET_API_SECRET", "")
+            else:
+                self.api_key = os.environ.get("BINANCE_API_KEY", "")
+                self.api_secret = os.environ.get("BINANCE_API_SECRET", "")
+
+        # now recompute base URL for chosen service
+        self._update_base_url(testnet)
+
         if not self.api_key or not self.api_secret:
             mode = "TESTNET" if testnet else "LIVE"
             raise RuntimeError(f"Missing API credentials for {mode} mode.")
+
+    # ------------------------------------------------------------------
+    # internal helpers for URL construction
+    # ------------------------------------------------------------------
+    def _update_base_url(self, testnet: bool) -> None:
+        """Recompute ``self.base_url`` based on the current API type and
+        whether testnet mode is active.  This is called during
+        initialization and when switching modes.
+
+        ``self.api_type`` is expected to be either ``"spot"`` (default) or
+        ``"futures"``.
+        """
+
+        if self.api_type == "futures":
+            # futures endpoints (USDT-margined) follow the ``fapi``
+            # namespace.  testnet uses a separate host.
+            if testnet:
+                self.base_url = "https://testnet.binancefuture.com"
+            else:
+                self.base_url = "https://fapi.binance.com"
+        else:
+            # spot market
+            if testnet:
+                self.base_url = "https://testnet.binance.vision"
+            else:
+                self.base_url = "https://api.binance.com"
+
+    def _full_url(self, path: str) -> str:
+        """Return ``base_url + path`` after adjusting any ``/api/v3``
+        prefixes for futures mode.
+
+        Many of the existing helpers in the file hardcode ``/api/v3/``
+        paths.  Futures APIs use ``/fapi/v1/`` instead, so we translate
+        automatically here rather than having callers think about it.
+        """
+
+        if self.api_type == "futures" and path.startswith("/api/v3"):
+            path = path.replace("/api/v3", "/fapi/v1", 1)
+        return self.base_url + path
 
     def validate_api_credentials(self) -> Tuple[bool, str]:
         """
@@ -453,12 +545,12 @@ class CryptoAPITrading:
                 "Missing API key or secret. Set BINANCE_API_KEY and BINANCE_API_SECRET environment variables.",
             )
 
-        print(f"{Fore.BLUE}[Validating API Credentials]{Style.RESET_ALL}")
+        print(f"{Fore.BLUE}[Validating API Credentials ({self.api_type.upper()})]{Style.RESET_ALL}")
         print(f"  Endpoint: {self.base_url}")
 
         # Test 1: Basic connectivity with public endpoint
         try:
-            resp = requests.get(f"{self.base_url}/api/v3/ping", timeout=5)
+            resp = requests.get(self._full_url("/api/v3/ping"), timeout=5)
             resp.raise_for_status()
             print(f"{Fore.GREEN}  ✓ API Connectivity: OK{Style.RESET_ALL}")
         except Exception as e:
@@ -466,7 +558,7 @@ class CryptoAPITrading:
 
         # Test 2: Server timestamp to detect clock sync issues
         try:
-            resp = requests.get(f"{self.base_url}/api/v3/time", timeout=5)
+            resp = requests.get(self._full_url("/api/v3/time"), timeout=5)
             resp.raise_for_status()
             server_time = resp.json().get("serverTime", None)
             if server_time:
@@ -494,24 +586,25 @@ class CryptoAPITrading:
 
             headers = {"X-MBX-APIKEY": self.api_key}
             resp = requests.get(
-                f"{self.base_url}/api/v3/account",
+                self._full_url("/api/v3/account"),
                 headers=headers,
                 params=params,
                 timeout=5,
             )
 
             if resp.status_code == 401:
+                feature = "Spot Trading" if self.api_type == "spot" else "Futures"
                 msg = (
                     f"{Fore.RED}API Authentication Failed (401 Unauthorized){Style.RESET_ALL}\n"
                     f"  Possible causes:\n"
                     f"  1. API Key/Secret are incorrect or expired\n"
-                    f"  2. API Key does NOT have 'Enable Spot Trading' permission\n"
+                    f"  2. API Key does NOT have 'Enable {feature}' permission\n"
                     f"  3. API Key does NOT have 'Enable Account Access' permission\n"
                     f"  4. IP Whitelist restriction: Current IP may not be whitelisted\n\n"
                     f"  To fix:\n"
                     f"  - Log into https://www.binance.com/en/user/settings/api-management\n"
                     f"  - Click on your API key to edit it\n"
-                    f"  - Enable: 'Enable Spot Trading' checkbox\n"
+                    f"  - Enable: 'Enable {feature}' checkbox\n"
                     f"  - Enable: 'Enable Reading' checkbox (for account access)\n"
                     f"  - Check IP Whitelist settings (or disable if too restrictive)\n"
                     f"  - Save and regenerate the key if necessary"
@@ -575,13 +668,15 @@ class CryptoAPITrading:
         # keep a copy of the folder map (same idea as trader.py)
         self.path_map = dict(base_paths)
 
+        # determine API type (spot or futures) based on global flag; once
+        # initialized individual instances may be switched with
+        # ``switch_trading_mode`` as well.
+        self.api_type = "futures" if BINANCE_FUTURES else "spot"
+
         self.api_key = API_KEY
         self.api_secret = API_SECRET
-        if BINANCE_TESTNET:
-            # Binance testnet endpoint
-            self.base_url = "https://testnet.binance.vision"
-        else:
-            self.base_url = "https://api.binance.com"
+        # set the initial base URL based on mode/testnet and api_type
+        self._update_base_url(BINANCE_TESTNET)
 
         # ----- network session for reuse & pooling -----
         # using a Session dramatically reduces latency by reusing TCP/TLS
@@ -1464,7 +1559,16 @@ class CryptoAPITrading:
         self._ws_running = True
         while self._ws_running:
             try:
-                ws_url = "wss://stream.binance.com:9443/ws"
+                # choose websocket host based on API type
+                if self.api_type == "futures":
+                    # futures websocket endpoints
+                    if BINANCE_TESTNET:
+                        ws_url = "wss://stream.binancefuture.com/ws"
+                    else:
+                        ws_url = "wss://fstream.binance.com/ws"
+                else:
+                    # spot market stream (same for live & testnet)
+                    ws_url = "wss://stream.binance.com:9443/ws"
                 self._ws_connection = websocket.WebSocketApp(
                     ws_url,
                     on_message=self._on_ws_message,
@@ -1538,6 +1642,12 @@ class CryptoAPITrading:
 
         while retry_count < max_retries:
             try:
+                # early path translation so the rest of the method can assume
+                # the appropriate prefix for the current api_type
+                if self.api_type == "futures" and path.startswith("/api/v3"):
+                    path = path.replace("/api/v3", "/fapi/v1", 1)
+                    url = self.base_url + path
+
                 # Compatibility shim: translate old Robinhood trading order calls to Binance
                 if "/api/v1/crypto/trading/orders" in path and method == "POST":
                     try:
@@ -1561,8 +1671,10 @@ class CryptoAPITrading:
 
                     signed = self._binance_signed_params(params)
                     headers = {"X-MBX-APIKEY": self.api_key}
+                    # choose correct order endpoint for spot/futures
+                    order_prefix = "/fapi/v1" if self.api_type == "futures" else "/api/v3"
                     resp = self.session.post(
-                        self.base_url + "/api/v3/order",
+                        self.base_url + order_prefix + "/order",
                         headers=headers,
                         params=signed,
                         timeout=10,
@@ -1594,12 +1706,9 @@ class CryptoAPITrading:
                     except Exception:
                         params = None
 
-                # Determine if endpoint requires signature (simple heuristic)
-                is_signed = (
-                    path.startswith("/api/v3/account")
-                    or "/order" in path
-                    or path.startswith("/api/v3/myTrades")
-                )
+                # Determine if endpoint requires signature (simple heuristic).
+                # For futures we simply look at the translated path as well.
+                is_signed = any(seg in path for seg in ("/account", "/order", "/myTrades"))
 
                 if is_signed:
                     # add timestamp and signature
