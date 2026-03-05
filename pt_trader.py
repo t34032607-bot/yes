@@ -19,6 +19,8 @@ from flask import Flask, jsonify, request
 
 # Load environment variables from .env file
 load_dotenv()
+print("API_KEY:", os.environ.get("BINANCE_API_KEY"))
+print("API_SECRET:", os.environ.get("BINANCE_SECRET_KEY"))
 
 # -----------------------------
 # GUI HUB OUTPUTS
