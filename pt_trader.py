@@ -386,6 +386,13 @@ BINANCE_TESTNET = os.environ.get("BINANCE_TESTNET", "0") == "1"
 
 BINANCE_FUTURES = os.environ.get("BINANCE_FUTURES", "0") == "1"
 
+# Binance account types: spot (default), funding, earn, overview
+# Set BINANCE_ACCOUNT_TYPE to one of: spot, funding, earn, overview
+BINANCE_ACCOUNT_TYPE = os.environ.get("BINANCE_ACCOUNT_TYPE", "spot").lower()
+if BINANCE_ACCOUNT_TYPE not in ["spot", "funding", "earn", "overview"]:
+    print(f"Warning: Invalid BINANCE_ACCOUNT_TYPE '{BINANCE_ACCOUNT_TYPE}', defaulting to 'spot'")
+    BINANCE_ACCOUNT_TYPE = "spot"
+
 # Optional offline mode: when set, all network/API calls are bypassed.
 # Useful for development or when running in an environment with no
 # outbound connectivity (CI, air-gapped).
@@ -488,6 +495,18 @@ class CryptoAPITrading:
             mode = "TESTNET" if testnet else "LIVE"
             raise RuntimeError(f"Missing API credentials for {mode} mode.")
 
+    def switch_account_type(self, account_type: str):
+        """
+        Switch between different Binance account types.
+        Args:
+            account_type (str): One of 'spot', 'funding', 'earn', 'overview'
+        """
+        if account_type not in ["spot", "funding", "earn", "overview"]:
+            raise ValueError(f"Invalid account type: {account_type}. Must be one of: spot, funding, earn, overview")
+        
+        self.account_type = account_type
+        print(f"Switched to account type: {account_type}")
+
     # ------------------------------------------------------------------
     # internal helpers for URL construction
     # ------------------------------------------------------------------
@@ -547,7 +566,7 @@ class CryptoAPITrading:
                 "Missing API key or secret. Set BINANCE_API_KEY and BINANCE_API_SECRET environment variables.",
             )
 
-        print(f"{Fore.BLUE}[Validating API Credentials ({self.api_type.upper()})]{Style.RESET_ALL}")
+        print(f"{Fore.BLUE}[Validating API Credentials ({self.api_type.upper()}/{self.account_type.upper()})]{Style.RESET_ALL}")
         print(f"  Endpoint: {self.base_url}")
 
         # Test 1: Basic connectivity with public endpoint
@@ -579,7 +598,20 @@ class CryptoAPITrading:
 
         # Test 3: Try to fetch account info (requires API key + proper permissions)
         try:
+            # Use the appropriate account endpoint based on account type
+            if self.account_type == "funding":
+                account_path = "/sapi/v1/asset/assetDetail"
+            elif self.account_type == "earn":
+                account_path = "/sapi/v1/staking/position"
+            elif self.account_type == "overview":
+                account_path = "/sapi/v1/accountSnapshot"
+            else:  # spot
+                account_path = "/api/v3/account"
+
             params = {"timestamp": int(time.time() * 1000)}
+            if self.account_type == "overview":
+                params["type"] = "SPOT"
+
             qs = "&".join([f"{k}={params[k]}" for k in sorted(params)])
             signature = hmac.new(
                 self.api_secret.encode("utf-8"), qs.encode("utf-8"), hashlib.sha256
@@ -588,7 +620,7 @@ class CryptoAPITrading:
 
             headers = {"X-MBX-APIKEY": self.api_key}
             resp = requests.get(
-                self._full_url("/api/v3/account"),
+                self._full_url(account_path),
                 headers=headers,
                 params=params,
                 timeout=5,
@@ -616,25 +648,49 @@ class CryptoAPITrading:
             resp.raise_for_status()
             acct = resp.json()
 
-            if (
-                abs(float(acct.get("totalAssetOfBtc", 0))) > 0
-                or len(acct.get("balances", [])) > 0
-            ):
+            # Check if account data was retrieved successfully based on account type
+            account_access_ok = False
+            if self.account_type == "spot":
+                account_access_ok = (
+                    abs(float(acct.get("totalAssetOfBtc", 0))) > 0
+                    or len(acct.get("balances", [])) > 0
+                )
+            elif self.account_type == "funding":
+                # Funding account returns asset details
+                account_access_ok = isinstance(acct, dict) and len(acct) > 0
+            elif self.account_type == "earn":
+                # Earn account returns staking positions
+                account_access_ok = isinstance(acct, list) or (isinstance(acct, dict) and len(acct) > 0)
+            elif self.account_type == "overview":
+                # Overview returns snapshot data
+                account_access_ok = isinstance(acct, dict) and "snapshotVos" in acct
+
+            if account_access_ok:
                 print(f"{Fore.GREEN}  ✓ Account Access: OK{Style.RESET_ALL}")
                 
-                # Display balance information
+                # Display balance information based on account type
                 try:
-                    total_btc = float(acct.get("totalAssetOfBtc", 0))
-                    print(f"{Fore.CYAN}  Account Balance:{Style.RESET_ALL}")
-                    print(f"    Total BTC Value: {total_btc:.8f} BTC")
-                    
-                    # Extract USDT balance
-                    usdt_balance = 0.0
-                    for balance in acct.get("balances", []):
-                        if balance.get("asset") == "USDT":
-                            usdt_balance = float(balance.get("free", 0))
-                            break
-                    print(f"    USDT Balance: ${usdt_balance:.2f}")
+                    if self.account_type == "spot":
+                        total_btc = float(acct.get("totalAssetOfBtc", 0))
+                        print(f"{Fore.CYAN}  Account Balance:{Style.RESET_ALL}")
+                        print(f"    Total BTC Value: {total_btc:.8f} BTC")
+                        
+                        # Extract USDT balance
+                        usdt_balance = 0.0
+                        for balance in acct.get("balances", []):
+                            if balance.get("asset") == "USDT":
+                                usdt_balance = float(balance.get("free", 0))
+                                break
+                        print(f"    USDT Balance: ${usdt_balance:.2f}")
+                    elif self.account_type == "funding":
+                        print(f"{Fore.CYAN}  Funding Account:{Style.RESET_ALL}")
+                        print(f"    Asset details retrieved successfully")
+                    elif self.account_type == "earn":
+                        print(f"{Fore.CYAN}  Earn Account:{Style.RESET_ALL}")
+                        print(f"    Staking positions retrieved successfully")
+                    elif self.account_type == "overview":
+                        print(f"{Fore.CYAN}  Account Overview:{Style.RESET_ALL}")
+                        print(f"    Snapshot data retrieved successfully")
                 except Exception as e:
                     print(f"{Fore.YELLOW}  ⚠ Could not parse balance info: {e}{Style.RESET_ALL}")
                 
@@ -674,6 +730,7 @@ class CryptoAPITrading:
         # initialized individual instances may be switched with
         # ``switch_trading_mode`` as well.
         self.api_type = "futures" if BINANCE_FUTURES else "spot"
+        self.account_type = BINANCE_ACCOUNT_TYPE
 
         self.api_key = API_KEY
         self.api_secret = API_SECRET
@@ -835,12 +892,14 @@ class CryptoAPITrading:
         try:
             acct = self.get_account()
             if isinstance(acct, dict):
-                # Binance doesn't return "buying_power" field
-                # Calculate from free USDT balance
-                balances = acct.get("balances", [])
-                for balance in balances:
-                    if balance.get("asset") == "USDT":
-                        return float(balance.get("free", 0) or 0.0)
+                if self.account_type == "spot":
+                    # Calculate from free USDT balance in spot account
+                    balances = acct.get("balances", [])
+                    for balance in balances:
+                        if balance.get("asset") == "USDT":
+                            return float(balance.get("free", 0) or 0.0)
+                # For other account types (funding, earn, overview), buying power may not be applicable
+                # or calculated differently. Return 0.0 for now.
         except Exception:
             pass
         return 0.0
@@ -1835,9 +1894,24 @@ class CryptoAPITrading:
         return params
 
     def get_account(self) -> Any:
-        # Binance account endpoint
-        path = "/api/v3/account"
-        return self.make_api_request("GET", path)
+        # Binance account endpoint based on account type
+        if self.account_type == "funding":
+            # Funding wallet account
+            path = "/sapi/v1/asset/assetDetail"
+            return self.make_api_request("GET", path)
+        elif self.account_type == "earn":
+            # Earn/Staking account
+            path = "/sapi/v1/staking/position"
+            return self.make_api_request("GET", path)
+        elif self.account_type == "overview":
+            # Account snapshot overview
+            path = "/sapi/v1/accountSnapshot"
+            params = {"type": "SPOT"}
+            return self.make_api_request("GET", path, params=params)
+        else:  # spot (default)
+            # Spot trading account
+            path = "/api/v3/account"
+            return self.make_api_request("GET", path)
 
     def get_holdings(self) -> Any:
         # Convert Binance account balances to expected holdings shape
@@ -1847,13 +1921,27 @@ class CryptoAPITrading:
             return {"results": []}
         out = {"results": []}
         try:
-            balances = acct.get("balances", []) if isinstance(acct, dict) else []
-            for b in balances:
-                asset = b.get("asset")
-                free = float(b.get("free", 0) or 0)
-                locked = float(b.get("locked", 0) or 0)
-                total = free + locked
-                out["results"].append({"asset_code": asset, "total_quantity": total})
+            if self.account_type == "spot":
+                # Spot account has balances array
+                balances = acct.get("balances", []) if isinstance(acct, dict) else []
+                for b in balances:
+                    asset = b.get("asset")
+                    free = float(b.get("free", 0) or 0)
+                    locked = float(b.get("locked", 0) or 0)
+                    total = free + locked
+                    out["results"].append({"asset_code": asset, "total_quantity": total})
+            elif self.account_type == "funding":
+                # Funding account - assets are in different format
+                # For now, return empty as funding assets may not be directly tradable
+                pass
+            elif self.account_type == "earn":
+                # Earn account - staking positions
+                # For now, return empty as staked assets may not be directly tradable
+                pass
+            elif self.account_type == "overview":
+                # Overview account snapshot
+                # For now, return empty as snapshot data structure is different
+                pass
         except Exception:
             pass
         return out
