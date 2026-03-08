@@ -6372,3 +6372,233 @@ No orders found for CKB-USD. Skipping.
 No orders found for FIRO-USD. Skipping.
 [HTTP Error] GET /api/v3/ticker/bookTicker?symbol=ARNUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=ARNUSDT
 No orders found for LIT-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=BCPTUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=BCPTUSDT
+No orders found for PROS-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=CNDUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=CNDUSDT
+No orders found for VAI-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=GVTUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=GVTUSDT
+No orders found for SFP-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=POEUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=POEUSDT
+No orders found for FXS-USD. Skipping.
+No orders found for DODO-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=FUELUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=FUELUSDT
+No orders found for AUCTION-USD. Skipping.
+No orders found for UFT-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=QSPUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=QSPUSDT
+No orders found for ACM-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=BCDUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=BCDUSDT
+No orders found for PHA-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=TNBUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=TNBUSDT
+No orders found for TVK-USD. Skipping.
+No orders found for BADGER-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=CMTUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=CMTUSDT
+No orders found for FIS-USD. Skipping.
+No orders found for QI-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=WABIUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=WABIUSDT
+No orders found for OM-USD. Skipping.
+No orders found for POND-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=OSTUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=OSTUSDT
+No orders found for ALICE-USD. Skipping.
+No orders found for DEGO-USD. Skipping.
+No orders found for BIFI-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=WINGSUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=WINGSUSDT
+No orders found for LINA-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=BRDUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=BRDUSDT
+No orders found for PERP-USD. Skipping.
+No orders found for RAMP-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=NAVUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=NAVUSDT
+No orders found for SUPER-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=VIBEUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=VIBEUSDT
+No orders found for CFX-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=LUNUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=LUNUSDT
+No orders found for TKO-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=TRIGUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=TRIGUSDT
+No orders found for AUTO-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=APPCUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=APPCUSDT
+No orders found for EPS-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=CHATUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=CHATUSDT
+No orders found for PUNDIX-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=INSUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=INSUSDT
+No orders found for TLM-USD. Skipping.
+No orders found for 1INCHUP-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=AEUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=AEUSDT
+No orders found for 1INCHDOWN-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=VIAUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=VIAUSDT
+No orders found for MIR-USD. Skipping.
+No orders found for BAR-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=RPXUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=RPXUSDT
+No orders found for FORTH-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=NCASHUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=NCASHUSDT
+No orders found for EZ-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=POAUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=POAUSDT
+No orders found for AR-USD. Skipping.
+No orders found for ICP-USD. Skipping.
+No orders found for SHIB-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=WPRUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=WPRUSDT
+No orders found for POLS-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=QLCUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=QLCUSDT
+No orders found for MASK-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=GRSUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=GRSUSDT
+No orders found for LPT-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=CLOAKUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=CLOAKUSDT
+No orders found for AGIX-USD. Skipping.
+No orders found for ATA-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=BCNUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=BCNUSDT
+No orders found for NU-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=TUSDTUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=TUSDTUSDT
+No orders found for GTC-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=SKYCOINUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=SKYCOINUSDT
+No orders found for KLAY-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=AGIUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=AGIUSDT
+No orders found for TORN-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=NXSUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=NXSUSDT
+No orders found for KEEP-USD. Skipping.
+No orders found for ERN-USD. Skipping.
+No orders found for BOND-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=NASUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=NASUSDT
+No orders found for MLN-USD. Skipping.
+No orders found for C98-USD. Skipping.
+No orders found for FLOW-USD. Skipping.
+No orders found for QUICK-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=PHXUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=PHXUSDT
+No orders found for RAY-USD. Skipping.
+No orders found for MINA-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=GOUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=GOUSDT
+No orders found for QNT-USD. Skipping.
+No orders found for CLV-USD. Skipping.
+No orders found for XEC-USD. Skipping.
+No orders found for ALPACA-USD. Skipping.
+No orders found for FARM-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=USDTSUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=USDTSUSDT
+No orders found for VGX-USD. Skipping.
+No orders found for MBOX-USD. Skipping.
+No orders found for WAXP-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=BTCBUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=BTCBUSDT
+No orders found for TRIBE-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=USDTSBUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=USDTSBUSDT
+No orders found for GNO-USD. Skipping.
+No orders found for USDP-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=BGBPUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=BGBPUSDT
+No orders found for DYDX-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=TUSDTBUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=TUSDTBUSDT
+No orders found for GALA-USD. Skipping.
+No orders found for ILV-USD. Skipping.
+No orders found for YGG-USD. Skipping.
+No orders found for FIDA-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=BUSDTUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=BUSDTUSDT
+No orders found for AGLD-USD. Skipping.
+No orders found for BETA-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=NGNUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=NGNUSDT
+No orders found for RAD-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=LDBNBUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=LDBNBUSDTNo orders found for RARE-USD. Skipping.
+
+No orders found for SSV-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=RUBUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=RUBUSDT
+No orders found for LAZIO-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=UAHUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=UAHUSDT
+No orders found for MOVR-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=TRYUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=TRYUSDT
+No orders found for CHESS-USD. Skipping.
+No orders found for DAR-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=USDTUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=USDTUSDT
+No orders found for ACA-USD. Skipping.
+No orders found for ASTR-USD. Skipping.
+No orders found for BNX-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=IDRUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=IDRUSDT
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=COPUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=COPUSDT
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=MXNUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=MXNUSDT
+No orders found for RGT-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=ARSUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=ARSUSDT
+No orders found for CITY-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=BRLUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=BRLUSDT
+No orders found for ENS-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=PLNUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=PLNUSDT
+No orders found for PORTO-USD. Skipping.
+No orders found for JASMY-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=CZKUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=CZKUSDT
+No orders found for AMP-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=RONUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=RONUSDT
+No orders found for PLA-USD. Skipping.
+No orders found for PYR-USD. Skipping.
+No orders found for SANTOS-USD. Skipping.
+No orders found for RNDR-USD. Skipping.
+No orders found for ALCX-USD. Skipping.
+No orders found for MC-USD. Skipping.
+No orders found for ANY-USD. Skipping.
+No orders found for VOXEL-USD. Skipping.
+No orders found for BICO-USD. Skipping.
+No orders found for FLUX-USD. Skipping.
+No orders found for UST-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=JPYUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=JPYUSDT
+No orders found for HIGH-USD. Skipping.
+No orders found for OOKI-USD. Skipping.
+No orders found for CVX-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=ZARUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=ZARUSDT
+No orders found for PEOPLE-USD. Skipping.
+No orders found for SPELL-USD. Skipping.
+No orders found for JOE-USD. Skipping.
+No orders found for BDOT-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=IDRTUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=IDRTUSDT
+No orders found for GLMR-USD. Skipping.
+No orders found for ACH-USD. Skipping.
+No orders found for IMX-USD. Skipping.
+No orders found for LOKA-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=BIDRUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=BIDRUSDT
+No orders found for BTTC-USD. Skipping.
+No orders found for ANC-USD. Skipping.
+No orders found for API3-USD. Skipping.
+No orders found for XNO-USD. Skipping.
+No orders found for COW-USD. Skipping.
+No orders found for WOO-USD. Skipping.
+No orders found for ALPINE-USD. Skipping.
+No orders found for T-USD. Skipping.
+No orders found for NBT-USD. Skipping.
+No orders found for KDA-USD. Skipping.
+No orders found for APE-USD. Skipping.
+No orders found for GMT-USD. Skipping.
+No orders found for MOB-USD. Skipping.
+No orders found for BSW-USD. Skipping.
+No orders found for MULTI-USD. Skipping.
+No orders found for REI-USD. Skipping.
+No orders found for GAL-USD. Skipping.
+No orders found for NEXO-USD. Skipping.
+No orders found for EPX-USD. Skipping.
+No orders found for LDO-USD. Skipping.
+No orders found for USTC-USD. Skipping.
+No orders found for LUNC-USD. Skipping.
+No orders found for OP-USD. Skipping.
+No orders found for LEVER-USD. Skipping.
+No orders found for STG-USD. Skipping.
+No orders found for POLYX-USD. Skipping.
+No orders found for GMX-USD. Skipping.
+No orders found for APT-USD. Skipping.
+No orders found for OSMO-USD. Skipping.
+No orders found for HFT-USD. Skipping.
+No orders found for HOOK-USD. Skipping.
+No orders found for MAGIC-USD. Skipping.
+No orders found for HIFI-USD. Skipping.
+No orders found for RPL-USD. Skipping.
+No orders found for GFT-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=SWRVUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=SWRVUSDT
+No orders found for GNS-USD. Skipping.
+No orders found for SYN-USD. Skipping.
+No orders found for LQTY-USD. Skipping.
+No orders found for ID-USD. Skipping.
+No orders found for ARB-USD. Skipping.
+No orders found for RDNT-USD. Skipping.
+No orders found for EDU-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=SPARTAUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=SPARTAUSDT
+No orders found for WBETH-USD. Skipping.
+No orders found for SUI-USD. Skipping.
+No orders found for PEPE-USD. Skipping.
+No orders found for FLOKI-USD. Skipping.
+No orders found for COMBO-USD. Skipping.
+No orders found for NTRN-USD. Skipping.
+No orders found for MAV-USD. Skipping.
+No orders found for FDUSD-USD. Skipping.
+No orders found for PENDLE-USD. Skipping.
+No orders found for ARKM-USD. Skipping.
+No orders found for WLD-USD. Skipping.
+No orders found for CYBER-USD. Skipping.
+[HTTP Error] GET /api/v3/ticker/bookTicker?symbol=EASYUSDT: 400 Client Error: Bad Request for url: https://api.binance.com/api/v3/ticker/bookTicker?symbol=EASYUSDT
+No orders found for SEI-USD. Skipping.
