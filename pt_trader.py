@@ -413,7 +413,7 @@ else:
         API_SECRET = os.environ.get("BINANCE_TESTNET_API_SECRET", "")
     else:
         API_KEY = os.environ.get("BINANCE_API_KEY", "")
-        API_SECRET = os.environ.get("BINANCE_API_SECRET", "")
+        API_SECRET = os.environ.get("BINANCE_SECRET_KEY", "")
 
 # Fallback to files if env vars not set (mainnet only)
 if not API_KEY and not BINANCE_TESTNET:
@@ -881,7 +881,12 @@ class CryptoAPITrading:
         try:
             acct = self.get_account()
             if isinstance(acct, dict):
-                return float(acct.get("buying_power", 0.0) or 0.0)
+                # Binance doesn't return "buying_power" field
+                # Calculate from free USDT balance
+                balances = acct.get("balances", [])
+                for balance in balances:
+                    if balance.get("asset") == "USDT":
+                        return float(balance.get("free", 0) or 0.0)
         except Exception:
             pass
         return 0.0
