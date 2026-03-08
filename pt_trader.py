@@ -15,7 +15,6 @@ import traceback
 from dotenv import load_dotenv
 import websocket
 from queue import Queue
-from flask import Flask, jsonify, request
 
 # Load environment variables from .env file
 load_dotenv()
@@ -764,14 +763,6 @@ class CryptoAPITrading:
         self._dca_last_sell_ts = {}  # { "BTC": ts_of_last_sell }
         self._seed_dca_window_from_history()
 
-        # --- Flask API server for GET /api/v3/account ---
-        self.flask_app = Flask(__name__)
-        self._setup_flask_routes()
-        self._api_port = int(os.environ.get("POWERTRADER_API_PORT", 5000))
-        # Start Flask in background thread
-        self._flask_thread = threading.Thread(target=self._run_flask_app, daemon=True)
-        self._flask_thread.start()
-
     def _atomic_write_json(self, path: str, data: dict) -> None:
         try:
             tmp = f"{path}.tmp"
@@ -818,43 +809,6 @@ class CryptoAPITrading:
             self._atomic_write_json(PNL_LEDGER_PATH, self._pnl_ledger)
         except Exception:
             pass
-
-    def _setup_flask_routes(self) -> None:
-        """Setup Flask API routes for account information"""
-        @self.flask_app.route("/api/v3/account", methods=["GET"])
-        def get_account_api():
-            """GET /api/v3/account - Returns account information from Binance"""
-            try:
-                account_data = self.get_account()
-                if account_data is None:
-                    return jsonify({"error": "Failed to retrieve account data"}), 500
-                return jsonify(account_data), 200
-            except Exception as e:
-                return jsonify({"error": str(e)}), 500
-
-        @self.flask_app.route("/api/v3/account/balances", methods=["GET"])
-        def get_balances_api():
-            """GET /api/v3/account/balances - Returns account balances"""
-            try:
-                account_data = self.get_account()
-                if account_data is None:
-                    return jsonify({"error": "Failed to retrieve account data"}), 500
-                balances = account_data.get("balances", [])
-                return jsonify({"balances": balances}), 200
-            except Exception as e:
-                return jsonify({"error": str(e)}), 500
-
-    def _run_flask_app(self) -> None:
-        """Run Flask app in a background thread"""
-        try:
-            print(
-                f"{Fore.CYAN}[Flask API] Starting on port {self._api_port}{Style.RESET_ALL}"
-            )
-            self.flask_app.run(host="0.0.0.0", port=self._api_port, debug=False, use_reloader=False)
-        except Exception as e:
-            print(
-                f"{Fore.YELLOW}[Flask API] Error: {e}{Style.RESET_ALL}"
-            )
 
     def _trade_history_has_order_id(self, order_id: str) -> bool:
         try:
