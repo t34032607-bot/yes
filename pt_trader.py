@@ -2596,6 +2596,15 @@ class CryptoAPITrading:
             f"Trailing PM: start +{self.pm_start_pct_no_dca:.2f}% (no DCA) / +{self.pm_start_pct_with_dca:.2f}% (with DCA) "
             f"| gap {self.trailing_gap_pct:.2f}%"
         )
+        # print raw holdings list so user sees balances each tick
+        try:
+            print("\n--- Raw Balances ---")
+            for h in holdings_list:
+                asset = h.get("asset_code")
+                qty = h.get("total_quantity")
+                print(f"  {asset}: {qty}")
+        except Exception:
+            pass
         print("\n--- Current Trades ---")
 
         positions = {}
@@ -3152,6 +3161,19 @@ if __name__ == "__main__":
             f"{Fore.RED}[FATAL] Cannot start trading bot without valid API credentials.{Style.RESET_ALL}"
         )
         raise SystemExit(1)
+
+    # show current account balances right after validation
+    try:
+        holdings = trading_bot.get_holdings()
+        if holdings and isinstance(holdings.get("results"), list):
+            print("--- Current Account Balances ---")
+            for bal in holdings.get("results", []):
+                asset = bal.get("asset_code", "?")
+                qty = bal.get("total_quantity", 0)
+                print(f"  {asset}: {qty}")
+            print("")
+    except Exception:
+        pass
 
     try:
         trading_bot.run()
